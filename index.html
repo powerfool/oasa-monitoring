@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Bus Stop Monitor</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    #dashboard { display: flex; flex-wrap: wrap; gap: 20px; }
+    .stop { border: 1px solid #ccc; padding: 10px; border-radius: 5px; width: 300px; }
+    .stop h3 { margin-top: 0; }
+  </style>
+</head>
+<body>
+
+  <h1>Real-Time Bus Stop Monitor</h1>
+  <label>Enter stop codes (comma-separated):</label><br>
+  <input type="text" id="stopCodesInput" placeholder="eg. 080240,060106" size="50"/>
+  <button onclick="startMonitoring()">Start Monitoring</button>
+
+  <div id="dashboard"></div>
+
+  <script>
+    const API_BASE = 'https://oasa-monitoring.dimitzortzis.workers.dev/';
+
+    let intervalId;
+
+    function startMonitoring() {
+      const input = document.getElementById('stopCodesInput').value;
+      const stopCodes = input.split(',').map(code => code.trim()).filter(code => code);
+      if (stopCodes.length === 0) return;
+
+      clearInterval(intervalId); // reset if already running
+      updateDashboard(stopCodes);
+      intervalId = setInterval(() => updateDashboard(stopCodes), 30000);
+    }
+
+    async function updateDashboard(codes) {
+      const dashboard = document.getElementById('dashboard');
+      dashboard.innerHTML = '';
+
+      for (const code of codes) {
+        const stopEl = document.createElement('div');
+        stopEl.className = 'stop';
+        stopEl.innerHTML = `<h3>Stop Code: ${code}</h3><p>Loading...</p>`;
+        dashboard.appendChild(stopEl);
+
+        try {
+          const res = await fetch(API_BASE + code);
+          const data = await res.json();
+
+          if (!data || data.length === 0) {
+            stopEl.innerHTML += '<p>No data available</p>';
+            continue;
+          }
+
+          stopEl.innerHTML = `<h3>Stop: ${data[0].stopDescr}</h3>`;
+          const list = document.createElement('ul');
+          data.forEach(route => {
+            const li = document.createElement('li');
+            li.textContent = `${route.routeCode} - ${route.routeDescr} → Arrives in ${route.vehicles.map(v => v.time).join(', ')} min`;
+            list.appendChild(li);
+          });
+          stopEl.appendChild(list);
+
+        } catch (err) {
+          stopEl.innerHTML += `<p style="color: red;">Error fetching data</p>`;
+        }
+      }
+    }
+  </script>
+
+</body>
+</html>
